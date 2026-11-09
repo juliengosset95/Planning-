@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Planning">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#f1f5f9">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>Planning Julien & Marguerite</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;padding:16px;padding-top:calc(16px + env(safe-area-inset-top));padding-bottom:calc(16px + env(safe-area-inset-bottom));background:#f1f5f9;font-family:-apple-system,system-ui,sans-serif;color:#1e293b;min-height:100vh}
+.card{max-width:448px;margin:0 auto;background:#fff;border-radius:16px;box-shadow:0 4px 12px rgba(0,0,0,.1);padding:20px}
+h1{font-size:24px;text-align:center;margin:0 0 16px}
+.legend{display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;font-weight:600;margin-bottom:20px;color:#334155}
+.legend div{display:flex;align-items:center;gap:8px}
+.dot{width:16px;height:16px;border-radius:4px;display:inline-block}
+.nav{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.nav button{padding:4px 12px;background:#e2e8f0;color:#334155;border:0;border-radius:8px;font-size:18px;font-weight:700}
+.nav h2{font-size:20px;margin:0;text-transform:capitalize}
+.grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.head{text-align:center;font-weight:600;color:#64748b;font-size:14px;margin-bottom:8px;gap:4px}
+.cell{height:40px;display:flex;align-items:center;justify-content:center;border-radius:8px;font-weight:700;font-size:14px;color:#fff;box-shadow:0 1px 2px rgba(0,0,0,.1)}
+.off-j{background:#2563eb}.off-m{background:#ec4899}
+.box{border-top:1px solid #e2e8f0;padding-top:16px;margin-top:20px}
+.box h3{font-size:16px;margin:0 0 8px;color:#334155}
+select,input{width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;background:#f8fafc;color:#1e293b;margin-bottom:8px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+#add{width:100%;background:#1e293b;color:#fff;border:0;padding:10px;border-radius:8px;font-weight:600;font-size:14px}
+ul{list-style:none;margin:0;padding:0;max-height:160px;overflow-y:auto;font-size:14px}
+li{display:flex;justify-content:space-between;align-items:center;padding:8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;margin-bottom:8px}
+li button{background:none;border:0;color:#ef4444;font-weight:700;padding:0 8px;font-size:16px}
+.foot{font-size:11px;color:#94a3b8;text-align:center;margin-top:12px}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Planning Roulement</h1>
+  <div class="legend">
+    <div><span class="dot" style="background:#2563eb"></span>Julien OFF</div>
+    <div><span class="dot" style="background:#ec4899"></span>Marguerite OFF</div>
+    <div><span class="dot" style="background:#10b981"></span>Vacances Julien</div>
+    <div><span class="dot" style="background:#8b5cf6"></span>Vacances Marguerite</div>
+  </div>
+  <div class="nav">
+    <button id="prev">←</button><h2 id="title"></h2><button id="next">→</button>
+  </div>
+  <div class="grid head"><div>L</div><div>M</div><div>M</div><div>J</div><div>V</div><div>S</div><div>D</div></div>
+  <div id="cal" class="grid"></div>
+  <div class="box">
+    <h3>Ajouter des vacances</h3>
+    <select id="person"><option value="julien">Julien</option><option value="marguerite">Marguerite</option></select>
+    <div class="two"><input type="date" id="start"><input type="date" id="end"></div>
+    <button id="add">Ajouter les vacances</button>
+  </div>
+  <div class="box">
+    <h3>Vacances enregistrées</h3>
+    <ul id="list"></ul>
+  </div>
+  <div class="foot">Fonctionne hors ligne · vacances enregistrées sur cet appareil</div>
+</div>
+<script>
+const ref = new Date(2026, 10, 9); // 9 nov. 2026 = jour 1 : Julien travaille, Marguerite OFF
+let cur = new Date(2026, 10, 1);
+let vacs = [];
+try { vacs = JSON.parse(localStorage.getItem('planning_vacations') || '[]'); } catch (e) {}
+function save() { try { localStorage.setItem('planning_vacations', JSON.stringify(vacs)); } catch (e) {} render(); }
+function str(d) { return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+function status(d) { const n = Math.round((d - ref) / 86400000); return (((n % 8) + 8) % 8) >= 4 ? 'off-j' : 'off-m'; }
+function isVac(d, p) { const s = str(d); return vacs.some(v => v.person === p && s >= v.start && s <= v.end); }
+function render() {
+  const y = cur.getFullYear(), m = cur.getMonth();
+  document.getElementById('title').textContent = new Intl.DateTimeFormat('fr-FR', {month:'long', year:'numeric'}).format(cur);
+  const cal = document.getElementById('cal'); cal.innerHTML = '';
+  let off = new Date(y, m, 1).getDay() - 1; if (off < 0) off = 6;
+  for (let i = 0; i < off; i++) cal.appendChild(document.createElement('div'));
+  const n = new Date(y, m + 1, 0).getDate();
+  for (let d = 1; d <= n; d++) {
+    const dt = new Date(y, m, d), c = document.createElement('div');
+    c.className = 'cell'; c.textContent = d;
+    const cols = [];
+    if (isVac(dt, 'julien')) cols.push('#10b981');
+    if (isVac(dt, 'marguerite')) cols.push('#8b5cf6');
+    if (cols.length === 1) c.style.background = cols[0];
+    else if (cols.length > 1) { c.style.background = 'linear-gradient(90deg,' + cols.map((x,i) => x+' '+(i*100/cols.length)+'% '+((i+1)*100/cols.length)+'%').join(',') + ')'; c.style.textShadow = '0 1px 2px rgba(0,0,0,.6)'; }
+    else c.classList.add(status(dt));
+    cal.appendChild(c);
+  }
+  const ul = document.getElementById('list'); ul.innerHTML = '';
+  vacs.forEach((v, i) => {
+    const li = document.createElement('li');
+    const sp = document.createElement('span');
+    const b = document.createElement('b'); b.textContent = v.person === 'julien' ? 'Julien' : 'Marguerite';
+    sp.append(b, ' : ' + v.start + ' au ' + v.end);
+    const bt = document.createElement('button'); bt.textContent = 'X'; bt.onclick = () => { vacs.splice(i, 1); save(); };
+    li.append(sp, bt); ul.appendChild(li);
+  });
+}
+document.getElementById('prev').onclick = () => { cur.setMonth(cur.getMonth() - 1); render(); };
+document.getElementById('next').onclick = () => { cur.setMonth(cur.getMonth() + 1); render(); };
+document.getElementById('add').onclick = () => {
+  const person = document.getElementById('person').value, start = document.getElementById('start').value, end = document.getElementById('end').value;
+  if (start && end && start <= end) { vacs.push({person, start, end}); vacs.sort((a,b) => a.start.localeCompare(b.start)); save(); }
+  else alert('Veuillez sélectionner des dates valides.');
+};
+render();
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>
