@@ -24,7 +24,7 @@ h1{font-size:24px;text-align:center;margin:0 0 16px}
 .grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
 .head{text-align:center;font-weight:600;color:#64748b;font-size:14px;margin-bottom:8px;gap:4px}
 .cell{height:40px;display:flex;align-items:center;justify-content:center;border-radius:8px;font-weight:700;font-size:14px;color:#fff;box-shadow:0 1px 2px rgba(0,0,0,.1)}
-.off-j{background:#2563eb}.off-m{background:#ec4899}
+.today{box-shadow:0 0 0 2px #fff,0 0 0 5px #0f172a}
 .box{border-top:1px solid #e2e8f0;padding-top:16px;margin-top:20px}
 .box h3{font-size:16px;margin:0 0 8px;color:#334155}
 select,input{width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;background:#f8fafc;color:#1e293b;margin-bottom:8px}
@@ -44,6 +44,7 @@ li button{background:none;border:0;color:#ef4444;font-weight:700;padding:0 8px;f
     <div><span class="dot" style="background:#ec4899"></span>Marguerite OFF</div>
     <div><span class="dot" style="background:#10b981"></span>Vacances Julien</div>
     <div><span class="dot" style="background:#8b5cf6"></span>Vacances Marguerite</div>
+    <div><span class="dot" style="background:#fff;box-shadow:0 0 0 2px #0f172a"></span>Aujourd'hui</div>
   </div>
   <div class="nav">
     <button id="prev">←</button><h2 id="title"></h2><button id="next">→</button>
@@ -81,12 +82,13 @@ function render() {
   for (let d = 1; d <= n; d++) {
     const dt = new Date(y, m, d), c = document.createElement('div');
     c.className = 'cell'; c.textContent = d;
-    const cols = [];
-    if (isVac(dt, 'julien')) cols.push('#10b981');
-    if (isVac(dt, 'marguerite')) cols.push('#8b5cf6');
+    // Une couleur par personne : vacances (vert / violet) sinon OFF du roulement (bleu / rose)
+    const st = status(dt), cols = [];
+    if (isVac(dt, 'julien')) cols.push('#10b981'); else if (st === 'off-j') cols.push('#2563eb');
+    if (isVac(dt, 'marguerite')) cols.push('#8b5cf6'); else if (st === 'off-m') cols.push('#ec4899');
     if (cols.length === 1) c.style.background = cols[0];
-    else if (cols.length > 1) { c.style.background = 'linear-gradient(90deg,' + cols.map((x,i) => x+' '+(i*100/cols.length)+'% '+((i+1)*100/cols.length)+'%').join(',') + ')'; c.style.textShadow = '0 1px 2px rgba(0,0,0,.6)'; }
-    else c.classList.add(status(dt));
+    else { c.style.background = 'linear-gradient(90deg,' + cols.map((x,i) => x+' '+(i*100/cols.length)+'% '+((i+1)*100/cols.length)+'%').join(',') + ')'; c.style.textShadow = '0 1px 2px rgba(0,0,0,.6)'; }
+    if (str(dt) === str(new Date())) c.classList.add('today');
     cal.appendChild(c);
   }
   const ul = document.getElementById('list'); ul.innerHTML = '';
@@ -106,6 +108,7 @@ document.getElementById('add').onclick = () => {
   if (start && end && start <= end) { vacs.push({person, start, end}); vacs.sort((a,b) => a.start.localeCompare(b.start)); save(); }
   else alert('Veuillez sélectionner des dates valides.');
 };
+
 render();
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 </script>
