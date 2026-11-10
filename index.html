@@ -24,7 +24,9 @@ h1{font-size:24px;text-align:center;margin:0 0 16px}
 .grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
 .head{text-align:center;font-weight:600;color:#64748b;font-size:14px;margin-bottom:8px;gap:4px}
 .cell{height:40px;display:flex;align-items:center;justify-content:center;border-radius:8px;font-weight:700;font-size:14px;color:#fff;box-shadow:0 1px 2px rgba(0,0,0,.1)}
-.today{box-shadow:0 0 0 2px #fff,0 0 0 5px #0f172a}
+#cal{position:relative;row-gap:8px}
+.run{position:absolute;border:3px solid #0f172a;border-radius:11px;pointer-events:none}
+.num{width:30px;height:30px;border-radius:50%;border:2px solid #fff;display:flex;align-items:center;justify-content:center}
 .box{border-top:1px solid #e2e8f0;padding-top:16px;margin-top:20px}
 .box h3{font-size:16px;margin:0 0 8px;color:#334155}
 select,input{width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;background:#f8fafc;color:#1e293b;margin-bottom:8px}
@@ -33,6 +35,18 @@ select,input{width:100%;padding:8px;border:1px solid #e2e8f0;border-radius:8px;f
 ul{list-style:none;margin:0;padding:0;max-height:160px;overflow-y:auto;font-size:14px}
 li{display:flex;justify-content:space-between;align-items:center;padding:8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;margin-bottom:8px}
 li button{background:none;border:0;color:#ef4444;font-weight:700;padding:0 8px;font-size:16px}
+.pick{display:none;margin-bottom:8px}
+.pick.open{display:block}
+.field{width:100%;text-align:left;padding:10px;border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc;color:#1e293b;font-size:14px;margin-bottom:8px}
+.pnav{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.pnav button{padding:2px 10px;background:#e2e8f0;color:#334155;border:0;border-radius:8px;font-size:16px;font-weight:700}
+.pnav span{font-weight:700;font-size:15px;text-transform:capitalize}
+.phead{text-align:center;font-weight:600;color:#64748b;font-size:12px;margin-bottom:4px}
+#pcal{gap:4px}
+.pcell{height:34px;display:flex;align-items:center;justify-content:center;border-radius:8px;font-size:14px;font-weight:600;background:#f1f5f9;color:#334155;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.pcell.sel{background:#0f172a;color:#fff}
+.pcell.mid{background:#cbd5e1;color:#0f172a}
+.psum{font-size:13px;color:#475569;margin:8px 0;min-height:34px}
 .foot{font-size:11px;color:#94a3b8;text-align:center;margin-top:12px}
 </style>
 </head>
@@ -40,11 +54,12 @@ li button{background:none;border:0;color:#ef4444;font-weight:700;padding:0 8px;f
 <div class="card">
   <h1>Planning Roulement</h1>
   <div class="legend">
-    <div><span class="dot" style="background:#2563eb"></span>Julien OFF</div>
+    <div><span class="dot" style="background:#0284c7"></span>Julien OFF</div>
     <div><span class="dot" style="background:#ec4899"></span>Marguerite OFF</div>
     <div><span class="dot" style="background:#10b981"></span>Vacances Julien</div>
-    <div><span class="dot" style="background:#8b5cf6"></span>Vacances Marguerite</div>
-    <div><span class="dot" style="background:#fff;box-shadow:0 0 0 2px #0f172a"></span>Aujourd'hui</div>
+    <div><span class="dot" style="background:#7c3aed"></span>Vacances Marguerite</div>
+    <div><span class="dot" style="background:#64748b;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px #94a3b8"></span>Aujourd'hui</div>
+    <div style="grid-column:span 2"><span class="dot" style="background:#e2e8f0;border:2px solid #0f172a"></span>Ensemble : libres tous les deux</div>
   </div>
   <div class="nav">
     <button id="prev">←</button><h2 id="title"></h2><button id="next">→</button>
@@ -54,7 +69,13 @@ li button{background:none;border:0;color:#ef4444;font-weight:700;padding:0 8px;f
   <div class="box">
     <h3>Ajouter des vacances</h3>
     <select id="person"><option value="julien">Julien</option><option value="marguerite">Marguerite</option></select>
-    <div class="two"><input type="date" id="start"><input type="date" id="end"></div>
+    <button id="ptoggle" class="field">Choisir les dates ▾</button>
+    <div class="pick" id="pickbox">
+      <div class="pnav"><button id="pprev">←</button><span id="ptitle"></span><button id="pnext">→</button></div>
+      <div class="grid phead"><div>L</div><div>M</div><div>M</div><div>J</div><div>V</div><div>S</div><div>D</div></div>
+      <div id="pcal" class="grid"></div>
+      <div id="psum" class="psum"></div>
+    </div>
     <button id="add">Ajouter les vacances</button>
   </div>
   <div class="box">
@@ -71,6 +92,10 @@ try { vacs = JSON.parse(localStorage.getItem('planning_vacations') || '[]'); } c
 function save() { try { localStorage.setItem('planning_vacations', JSON.stringify(vacs)); } catch (e) {} render(); }
 function str(d) { return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
 function status(d) { const n = Math.round((d - ref) / 86400000); return (((n % 8) + 8) % 8) >= 4 ? 'off-j' : 'off-m'; }
+function freeBoth(d) {
+  const st = status(d);
+  return (isVac(d, 'julien') || st === 'off-j') && (isVac(d, 'marguerite') || st === 'off-m');
+}
 function isVac(d, p) { const s = str(d); return vacs.some(v => v.person === p && s >= v.start && s <= v.end); }
 function render() {
   const y = cur.getFullYear(), m = cur.getMonth();
@@ -79,37 +104,95 @@ function render() {
   let off = new Date(y, m, 1).getDay() - 1; if (off < 0) off = 6;
   for (let i = 0; i < off; i++) cal.appendChild(document.createElement('div'));
   const n = new Date(y, m + 1, 0).getDate();
+  const items = [];
   for (let d = 1; d <= n; d++) {
     const dt = new Date(y, m, d), c = document.createElement('div');
     c.className = 'cell'; c.textContent = d;
     // Une couleur par personne : vacances (vert / violet) sinon OFF du roulement (bleu / rose)
     const st = status(dt), cols = [];
-    if (isVac(dt, 'julien')) cols.push('#10b981'); else if (st === 'off-j') cols.push('#2563eb');
-    if (isVac(dt, 'marguerite')) cols.push('#8b5cf6'); else if (st === 'off-m') cols.push('#ec4899');
+    if (isVac(dt, 'julien')) cols.push('#10b981'); else if (st === 'off-j') cols.push('#0284c7');
+    if (isVac(dt, 'marguerite')) cols.push('#7c3aed'); else if (st === 'off-m') cols.push('#ec4899');
     if (cols.length === 1) c.style.background = cols[0];
-    else { c.style.background = 'linear-gradient(90deg,' + cols.map((x,i) => x+' '+(i*100/cols.length)+'% '+((i+1)*100/cols.length)+'%').join(',') + ')'; c.style.textShadow = '0 1px 2px rgba(0,0,0,.6)'; }
-    if (str(dt) === str(new Date())) c.classList.add('today');
+    else { c.style.background = 'linear-gradient(135deg,' + cols[0] + ' 0,' + cols[0] + ' calc(50% - 1.5px),#fff calc(50% - 1.5px),#fff calc(50% + 1.5px),' + cols[1] + ' calc(50% + 1.5px),' + cols[1] + ' 100%)'; c.style.textShadow = '0 1px 2px rgba(0,0,0,.6)'; }
+    if (str(dt) === str(new Date())) {
+      const sp = document.createElement('span'); sp.className = 'num'; sp.textContent = d;
+      c.textContent = ''; c.appendChild(sp); c.classList.add('today');
+    }
+    items.push({ c, tog: freeBoth(dt), col: (off + d - 1) % 7 });
     cal.appendChild(c);
+  }
+  // Contour noir continu autour de chaque période « ensemble » (une bande par semaine)
+  let k = 0;
+  while (k < items.length) {
+    if (!items[k].tog) { k++; continue; }
+    let e = k;
+    while (e + 1 < items.length && items[e + 1].tog && items[e + 1].col !== 0) e++;
+    const a = items[k].c, z = items[e].c, o = document.createElement('div');
+    o.className = 'run';
+    o.style.cssText = 'left:' + (a.offsetLeft - 3) + 'px;top:' + (a.offsetTop - 3) + 'px;width:' + (z.offsetLeft + z.offsetWidth - a.offsetLeft + 6) + 'px;height:' + (a.offsetHeight + 6) + 'px';
+    cal.appendChild(o);
+    k = e + 1;
   }
   const ul = document.getElementById('list'); ul.innerHTML = '';
   vacs.forEach((v, i) => {
     const li = document.createElement('li');
     const sp = document.createElement('span');
     const b = document.createElement('b'); b.textContent = v.person === 'julien' ? 'Julien' : 'Marguerite';
-    sp.append(b, ' : ' + v.start + ' au ' + v.end);
+    sp.append(b, v.start === v.end ? ' : le ' + fmt(v.start) : ' : du ' + fmt(v.start) + ' au ' + fmt(v.end));
     const bt = document.createElement('button'); bt.textContent = 'X'; bt.onclick = () => { vacs.splice(i, 1); save(); };
     li.append(sp, bt); ul.appendChild(li);
   });
 }
 document.getElementById('prev').onclick = () => { cur.setMonth(cur.getMonth() - 1); render(); };
 document.getElementById('next').onclick = () => { cur.setMonth(cur.getMonth() + 1); render(); };
+// --- Sélecteur de période : un seul calendrier, on touche le début puis la fin ---
+function fmt(ds) { const [y, m, d] = ds.split('-').map(Number); return new Intl.DateTimeFormat('fr-FR', {day:'numeric', month:'short', year:'numeric'}).format(new Date(y, m - 1, d)); }
+let pCur = new Date(cur.getFullYear(), cur.getMonth(), 1), pStart = null, pEnd = null;
+function pick(ds) {
+  if (!pStart || pEnd) { pStart = ds; pEnd = null; }
+  else if (ds < pStart) { pEnd = pStart; pStart = ds; }
+  else if (ds > pStart) { pEnd = ds; }
+  if (pEnd) document.getElementById('pickbox').classList.remove('open');
+  renderPicker();
+}
+function renderPicker() {
+  const y = pCur.getFullYear(), m = pCur.getMonth();
+  document.getElementById('ptitle').textContent = new Intl.DateTimeFormat('fr-FR', {month:'long', year:'numeric'}).format(pCur);
+  const pc = document.getElementById('pcal'); pc.innerHTML = '';
+  let off = new Date(y, m, 1).getDay() - 1; if (off < 0) off = 6;
+  for (let i = 0; i < off; i++) pc.appendChild(document.createElement('div'));
+  const n = new Date(y, m + 1, 0).getDate();
+  for (let d = 1; d <= n; d++) {
+    const ds = str(new Date(y, m, d)), c = document.createElement('div');
+    c.className = 'pcell'; c.textContent = d;
+    const last = pEnd || pStart;
+    if (pStart && (ds === pStart || ds === last)) c.classList.add('sel');
+    else if (pStart && pEnd && ds > pStart && ds < pEnd) c.classList.add('mid');
+    c.onclick = () => pick(ds);
+    pc.appendChild(c);
+  }
+  const sum = document.getElementById('psum');
+  if (!pStart) sum.textContent = 'Touche le premier jour de tes vacances.';
+  else if (!pEnd) sum.textContent = 'Le ' + fmt(pStart) + '. Touche un autre jour pour finir la période, ou « Ajouter » pour ce seul jour.';
+  else sum.textContent = 'Du ' + fmt(pStart) + ' au ' + fmt(pEnd) + '.';
+  document.getElementById('ptoggle').textContent = (!pStart ? 'Choisir les dates' : pEnd ? 'Du ' + fmt(pStart) + ' au ' + fmt(pEnd) : 'Le ' + fmt(pStart)) + ' ▾';
+}
+document.getElementById('ptoggle').onclick = () => document.getElementById('pickbox').classList.toggle('open');
+document.getElementById('pprev').onclick = () => { pCur.setMonth(pCur.getMonth() - 1); renderPicker(); };
+document.getElementById('pnext').onclick = () => { pCur.setMonth(pCur.getMonth() + 1); renderPicker(); };
 document.getElementById('add').onclick = () => {
-  const person = document.getElementById('person').value, start = document.getElementById('start').value, end = document.getElementById('end').value;
-  if (start && end && start <= end) { vacs.push({person, start, end}); vacs.sort((a,b) => a.start.localeCompare(b.start)); save(); }
-  else alert('Veuillez sélectionner des dates valides.');
+  const person = document.getElementById('person').value;
+  if (!pStart) { alert('Touche au moins un jour dans le calendrier.'); return; }
+  vacs.push({ person, start: pStart, end: pEnd || pStart });
+  vacs.sort((a, b) => a.start.localeCompare(b.start));
+  pStart = null; pEnd = null;
+  document.getElementById('pickbox').classList.remove('open');
+  save(); renderPicker();
 };
 
+window.addEventListener('resize', render);
 render();
+renderPicker();
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 </script>
 </body>
